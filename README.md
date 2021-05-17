@@ -44,6 +44,8 @@ wg.Add(1)
 
 server := NewServer(cfg, authorizator, backend)
 err := server.Start()
+// If you want to use TLS instead of unencrypted connection, do this instead:
+// err := server.StartTLS(certFile, keyFile)
 if err != nil {
     log.Fatal(err)
     return
