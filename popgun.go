@@ -160,10 +160,9 @@ func (s Server) StartTLS(certFile, keyFile string) error {
 	config := &tls.Config{Certificates: []tls.Certificate{cert}}
 	ln, err := tls.Listen("tcp", s.config.ListenInterface, config)
 	if err != nil {
-		log.Printf("Error: could not listen on %s", s.config.ListenInterface)
+		log.Printf("Error: could not listen on %s: %s", s.config.ListenInterface, err)
 		return err
 	}
-	defer ln.Close()
 
 	go func() {
 		log.Printf("Server listening on: %s\n", s.config.ListenInterface)
