@@ -6,6 +6,7 @@ package popgun
 
 import (
 	"bufio"
+	"crypto/tls"
 	"fmt"
 	"io"
 	"log"
@@ -150,8 +151,37 @@ func NewServer(cfg Config, auth Authorizator, backend Backend) *Server {
 	}
 }
 
-func (s Server) Start() error {
+func (s Server) StartTLS(certFile, keyFile string) error {
+	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
+	if err != nil {
+		log.Printf("Error: could not load certificate/key: %s", err)
+		return err
+	}
+	config := &tls.Config{Certificates: []tls.Certificate{cert}}
+	ln, err := tls.Listen("tcp", s.config.ListenInterface, config)
+	if err != nil {
+		log.Printf("Error: could not listen on %s", s.config.ListenInterface)
+		return err
+	}
+	defer ln.Close()
 
+	go func() {
+		log.Printf("Server listening on: %s\n", s.config.ListenInterface)
+		for {
+			conn, err := ln.Accept()
+			if err != nil {
+				log.Println(err)
+				continue
+			}
+			c := newClient(s.auth, s.backend)
+			go c.handle(conn)
+		}
+	}()
+
+	return nil
+}
+
+func (s Server) Start() error {
 	var err error
 	s.listener, err = net.Listen("tcp", s.config.ListenInterface)
 	if err != nil {
