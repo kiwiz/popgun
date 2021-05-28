@@ -258,3 +258,35 @@ func (cmd CapaCommand) Run(c *Client, args []string) (int, error) {
 
 	return c.currentState, nil
 }
+
+type TopCommand struct{}
+
+func (cmd TopCommand) Run(c *Client, args []string) (int, error) {
+	if c.currentState != STATE_TRANSACTION {
+		return 0, ErrInvalidState
+	}
+
+	if len(args) != 2 {
+		return 0, fmt.Errorf("Invalid number of arguments for TOP for user %s", c.user)
+	}
+
+	msgId, err := strconv.Atoi(args[0])
+	if err != nil {
+		c.printer.Err("Invalid argument: %s", args[0])
+		return 0, fmt.Errorf("Invalid argument for TOP given by user %s: %v", c.user, err)
+	}
+
+	n, err := strconv.Atoi(args[1])
+	if err != nil {
+		c.printer.Err("Invalid argument: %s", args[1])
+		return 0, fmt.Errorf("Invalid argument for TOP given by user %s: %v", c.user, err)
+	}
+
+	lines, err := c.backend.Top(msgId, n)
+	if err != nil {
+		return 0, fmt.Errorf("Error calling 'TOP %d %d' for user %s: %v", msgId, n, c.user, err)
+	}
+	c.printer.Ok("")
+	c.printer.MultiLine(lines)
+	return STATE_TRANSACTION, nil
+}

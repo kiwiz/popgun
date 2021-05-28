@@ -73,6 +73,20 @@ func (b DummyBackend) Update(user string) error {
 	return nil
 }
 
+// If the POP3 server issues a positive response, then the
+// response given is multi-line.  After the initial +OK, the
+// POP3 server sends the headers of the message, the blank
+// line separating the headers from the body, and then the
+// number of lines of the indicated message's body, being
+// careful to byte-stuff the termination character (as with
+// all multi-line responses).
+// Note that if the number of lines requested by the POP3
+// client is greater than than the number of lines in the
+// body, then the POP3 server sends the entire message.
+func (b DummyBackend) Top(userId int, n int) (lines []string, err error) {
+	return nil, nil
+}
+
 // Lock is called immediately after client is connected. The best way what to use Lock() for
 // is to read all the messages into cache after client is connected. If another user
 // tries to lock the storage, you should return an error to avoid data race.
