@@ -76,6 +76,7 @@ func newClient(authorizator Authorizator, backend Backend) *Client {
 	commands["RSET"] = RsetCommand{}
 	commands["UIDL"] = UidlCommand{}
 	commands["CAPA"] = CapaCommand{}
+	commands["TOP"] = TopCommand{}
 
 	return &Client{
 		commands:     commands,
