@@ -38,7 +38,7 @@ type Backend interface {
 	Rset(user string) error
 	Uidl(user string) (uids []string, err error)
 	UidlMessage(user string, msgId int) (exists bool, uid string, err error)
-	Top(msgId int, n int) (lines []string, err error)
+	Top(user string, msgId int, n int) (lines []string, err error)
 	Update(user string) error
 	Lock(user string) error
 	Unlock(user string) error

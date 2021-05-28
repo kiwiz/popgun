@@ -83,7 +83,7 @@ func (b DummyBackend) Update(user string) error {
 // Note that if the number of lines requested by the POP3
 // client is greater than than the number of lines in the
 // body, then the POP3 server sends the entire message.
-func (b DummyBackend) Top(userId int, n int) (lines []string, err error) {
+func (b DummyBackend) Top(user string, msgId int, n int) (lines []string, err error) {
 	return nil, nil
 }
 

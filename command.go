@@ -282,7 +282,7 @@ func (cmd TopCommand) Run(c *Client, args []string) (int, error) {
 		return 0, fmt.Errorf("Invalid argument for TOP given by user %s: %v", c.user, err)
 	}
 
-	lines, err := c.backend.Top(msgId, n)
+	lines, err := c.backend.Top(c.user, msgId, n)
 	if err != nil {
 		return 0, fmt.Errorf("Error calling 'TOP %d %d' for user %s: %v", msgId, n, c.user, err)
 	}
