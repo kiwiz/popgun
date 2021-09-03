@@ -423,6 +423,36 @@ func (cmd RetrCommand) Run(c *Client, args []string) (int, error) {
 	return STATE_TRANSACTION, nil
 }
 
+/*
+
+DELE msg
+
+	Arguments:
+		a message-number (required) which may NOT refer to a
+		message marked as deleted
+
+	Restrictions:
+		may only be given in the TRANSACTION state
+	Discussion:
+		The POP3 server marks the message as deleted.  Any future
+		reference to the message-number associated with the message
+		in a POP3 command generates an error.  The POP3 server does
+		not actually delete the message until the POP3 session
+		enters the UPDATE state.
+
+	Possible Responses:
+		+OK message deleted
+		-ERR no such message
+
+	Examples:
+		C: DELE 1
+		S: +OK message 1 deleted
+		...
+		C: DELE 2
+		S: -ERR message 2 already deleted
+
+*/
+
 type DeleCommand struct{}
 
 func (cmd DeleCommand) Run(c *Client, args []string) (int, error) {
@@ -449,6 +479,46 @@ func (cmd DeleCommand) Run(c *Client, args []string) (int, error) {
 	return STATE_TRANSACTION, nil
 }
 
+/*
+NOOP
+
+	Arguments: none
+
+	Restrictions:
+		may only be given in the TRANSACTION state
+
+	Discussion:
+		The POP3 server does nothing, it merely replies with a
+		positive response.
+
+	Possible Responses:
+		+OK
+
+	Examples:
+		C: NOOP
+		S: +OK
+
+
+RSET
+
+	Arguments: none
+
+	Restrictions:
+		may only be given in the TRANSACTION state
+
+	Discussion:
+		If any messages have been marked as deleted by the POP3
+		server, they are unmarked.  The POP3 server then replies
+		with a positive response.
+
+	Possible Responses:
+		+OK
+
+	Examples:
+		C: RSET
+		S: +OK maildrop has 2 messages (320 octets)
+*/
+
 type NoopCommand struct{}
 
 func (cmd NoopCommand) Run(c *Client, args []string) (int, error) {
@@ -458,6 +528,27 @@ func (cmd NoopCommand) Run(c *Client, args []string) (int, error) {
 	c.printer.Ok("")
 	return STATE_TRANSACTION, nil
 }
+
+/*
+RSET
+
+	Arguments: none
+
+	Restrictions:
+		may only be given in the TRANSACTION state
+
+	Discussion:
+		If any messages have been marked as deleted by the POP3
+		server, they are unmarked.  The POP3 server then replies
+		with a positive response.
+
+	Possible Responses:
+		+OK
+
+	Examples:
+		C: RSET
+		S: +OK maildrop has 2 messages (320 octets)
+*/
 
 type RsetCommand struct{}
 
@@ -474,6 +565,69 @@ func (cmd RsetCommand) Run(c *Client, args []string) (int, error) {
 
 	return STATE_TRANSACTION, nil
 }
+
+/*
+UIDL [msg]
+
+	Arguments:
+		a message-number (optional), which, if present, may NOT
+		refer to a message marked as deleted
+
+	Restrictions:
+		may only be given in the TRANSACTION state.
+
+	Discussion:
+		If an argument was given and the POP3 server issues a positive
+		response with a line containing information for that message.
+		This line is called a "unique-id listing" for that message.
+
+		If no argument was given and the POP3 server issues a positive
+		response, then the response given is multi-line.  After the
+		initial +OK, for each message in the maildrop, the POP3 server
+		responds with a line containing information for that message.
+		This line is called a "unique-id listing" for that message.
+
+		In order to simplify parsing, all POP3 servers are required to
+		use a certain format for unique-id listings.  A unique-id
+		listing consists of the message-number of the message,
+		followed by a single space and the unique-id of the message.
+		No information follows the unique-id in the unique-id listing.
+
+		The unique-id of a message is an arbitrary server-determined
+		string, consisting of one to 70 characters in the range 0x21
+		to 0x7E, which uniquely identifies a message within a
+		maildrop and which persists across sessions.  This
+		persistence is required even if a session ends without
+		entering the UPDATE state.  The server should never reuse an
+		unique-id in a given maildrop, for as long as the entity
+		using the unique-id exists.
+
+		Note that messages marked as deleted are not listed.
+
+		While it is generally preferable for server implementations
+		to store arbitrarily assigned unique-ids in the maildrop,
+		this specification is intended to permit unique-ids to be
+		calculated as a hash of the message.  Clients should be able
+		to handle a situation where two identical copies of a
+		message in a maildrop have the same unique-id.
+
+	Possible Responses:
+		+OK unique-id listing follows
+		-ERR no such message
+
+	Examples:
+		C: UIDL
+		S: +OK
+		S: 1 whqtswO00WBw418f9t5JxYwZ
+		S: 2 QhdPYR:00WBw1Ph7x7
+		S: .
+			...
+		C: UIDL 2
+		S: +OK 2 QhdPYR:00WBw1Ph7x7
+			...
+		C: UIDL 3
+		S: -ERR no such message, only 2 messages in maildrop
+*/
 
 type UidlCommand struct{}
 
@@ -513,17 +667,98 @@ func (cmd UidlCommand) Run(c *Client, args []string) (int, error) {
 	return STATE_TRANSACTION, nil
 }
 
+/*
+Defined in https://www.ietf.org/rfc/rfc2449.txt
+
+CAPA
+
+	Arguments:
+		none
+
+	Restrictions:
+		none
+
+	Discussion:
+		An -ERR response indicates the capability command is not
+		implemented and the client will have to probe for
+		capabilities as before.
+
+		An +OK response is followed by a list of capabilities, one
+		per line.  Each capability name MAY be followed by a single
+		space and a space-separated list of parameters.  Each
+		capability line is limited to 512 octets (including the
+		CRLF).  The capability list is terminated by a line
+		containing a termination octet (".") and a CRLF pair.
+
+		Possible Responses:
+			+OK -ERR
+
+		Examples:
+			C: CAPA
+			S: +OK Capability list follows
+			S: TOP
+			S: USER
+			S: SASL CRAM-MD5 KERBEROS_V4
+			S: RESP-CODES
+			S: LOGIN-DELAY 900
+			S: PIPELINING
+			S: EXPIRE 60
+			S: UIDL
+			S: IMPLEMENTATION Shlemazle-Plotz-v302
+			S: .
+*/
+
 type CapaCommand struct{}
 
 func (cmd CapaCommand) Run(c *Client, args []string) (int, error) {
 	c.printer.Ok("")
 	var commands []string
-	commands = []string{"USER", "UIDL"}
+	commands = []string{"USER", "UIDL", "TOP"}
 
 	c.printer.MultiLine(commands)
 
 	return c.currentState, nil
 }
+
+/*
+TOP msg n
+
+	Arguments:
+		a message-number (required) which may NOT refer to to a
+		message marked as deleted, and a non-negative number
+		of lines (required)
+
+	Restrictions:
+		may only be given in the TRANSACTION state
+
+	Discussion:
+		If the POP3 server issues a positive response, then the
+		response given is multi-line.  After the initial +OK, the
+		POP3 server sends the headers of the message, the blank
+		line separating the headers from the body, and then the
+		number of lines of the indicated message's body, being
+		careful to byte-stuff the termination character (as with
+		all multi-line responses).
+
+		Note that if the number of lines requested by the POP3
+		client is greater than than the number of lines in the
+		body, then the POP3 server sends the entire message.
+
+	Possible Responses:
+		+OK top of message follows
+		-ERR no such message
+
+	Examples:
+		C: TOP 1 10
+		S: +OK
+		S: <the POP3 server sends the headers of the
+		message, a blank line, and the first 10 lines
+		of the body of the message>
+		S: .
+		...
+		C: TOP 100 3
+		S: -ERR no such message
+*/
 
 type TopCommand struct{}
 
