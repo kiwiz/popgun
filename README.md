@@ -5,7 +5,7 @@
 POPgun is a lightweight POP3 server implementation in Go. POPgun meets [RFC1939](https://www.ietf.org/rfc/rfc1939.txt)
 and was mainly created for [develmail.com](https://develmail.com).
 
-Cloned from github.com/DevelHell/popgun, with added support for TLS connections.
+**Cloned from github.com/DevelHell/popgun, with added support for TLS connections and TOP command**
 
 ## Getting Started
 
