@@ -26,7 +26,7 @@ type Config struct {
 }
 
 type Authorizator interface {
-	Authorize(user, pass string) bool
+	Authorize(user, pass string) error
 }
 
 type Backend interface {

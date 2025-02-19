@@ -7,8 +7,8 @@ type DummyAuthorizator struct {
 }
 
 // Authorize user for given username and password.
-func (a DummyAuthorizator) Authorize(user, pass string) bool {
-	return true
+func (a DummyAuthorizator) Authorize(user, pass string) error {
+	return nil
 }
 
 // DummyBackend is a fake backend interface implementation used for test
