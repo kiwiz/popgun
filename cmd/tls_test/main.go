@@ -3,8 +3,8 @@ package main
 import (
 	"sync"
 
-	"github.com/regnull/popgun"
-	"github.com/regnull/popgun/backends"
+	"github.com/kiwiz/popgun"
+	"github.com/kiwiz/popgun/backends"
 )
 
 func main() {

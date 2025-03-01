@@ -1,3 +1,3 @@
-module github.com/regnull/popgun
+module github.com/kiwiz/popgun
 
 go 1.16
