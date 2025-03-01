@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net"
 	"reflect"
 	"testing"
@@ -21,6 +22,8 @@ func TestClient_handle(t *testing.T) {
 	authorizator := backends.DummyAuthorizator{}
 	insecure := true
 	client := newClient(s, authorizator, backend, insecure)
+	client.ErrorLog = log.Default()
+	client.DebugLog = log.Default()
 
 	go func() {
 		client.handle()

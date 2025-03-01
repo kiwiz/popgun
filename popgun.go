@@ -11,6 +11,7 @@ import (
 	"io"
 	"log"
 	"net"
+	"os"
 	"strings"
 	"time"
 )
@@ -20,6 +21,13 @@ const (
 	STATE_TRANSACTION
 	STATE_UPDATE
 )
+
+// Logger is the behaviour used by server/client to
+// report errors for accepting connections and unexpected behavior from handlers.
+type Logger interface {
+	Printf(format string, v ...interface{})
+	Println(v ...interface{})
+}
 
 type Authorizator interface {
 	Authorize(conn net.Conn, user, pass string) error
@@ -58,6 +66,9 @@ type Client struct {
 	pass              string
 	lastCommand       string
 	allowInsecureAuth bool
+
+	ErrorLog Logger
+	DebugLog Logger
 }
 
 func newClient(conn net.Conn, authorizator Authorizator, backend Backend, allowInsecureAuth bool) *Client {
@@ -106,12 +117,12 @@ func (c Client) handle() {
 		input, err := reader.ReadString('\n')
 		if err != nil {
 			if err == io.EOF {
-				log.Print("Connection closed by client")
+				c.DebugLog.Println("Connection closed by client")
 			} else {
-				log.Print("Error reading input: ", err)
+				c.DebugLog.Println("Error reading input: ", err)
 			}
 			if len(c.user) > 0 {
-				log.Printf("Unlocking user %s due to connection error ", c.user)
+				c.DebugLog.Println("Unlocking user %s due to connection error ", c.user)
 				c.backend.Unlock(c.user)
 			}
 			break
@@ -121,13 +132,13 @@ func (c Client) handle() {
 		exec, ok := c.commands[cmd]
 		if !ok {
 			c.printer.Err("Invalid command %s", cmd)
-			log.Printf("Invalid command: %s", cmd)
+			c.DebugLog.Printf("Invalid command: %s", cmd)
 			continue
 		}
 		state, err := exec.Run(&c, args)
 		if err != nil {
 			c.printer.Err("Error executing command %s", cmd)
-			log.Print("Error executing command: ", err)
+			c.DebugLog.Println("Error executing command: ", err)
 			continue
 		}
 		c.lastCommand = cmd
@@ -148,6 +159,8 @@ type Server struct {
 	backend Backend
 
 	AllowInsecureAuth bool
+	DebugLog          Logger
+	ErrorLog          Logger
 }
 
 func NewServer(auth Authorizator, backend Backend) *Server {
@@ -156,6 +169,8 @@ func NewServer(auth Authorizator, backend Backend) *Server {
 		backend: backend,
 
 		AllowInsecureAuth: false,
+		DebugLog:          log.New(os.Stderr, "pop3/debug: ", 0),
+		ErrorLog:          log.New(os.Stderr, "pop3/error: ", 0),
 	}
 }
 
@@ -164,11 +179,13 @@ func (s Server) Serve(l net.Listener) error {
 		for {
 			conn, err := l.Accept()
 			if err != nil {
-				log.Println("Error: could not accept connection: ", err)
+				s.ErrorLog.Println("Error: could not accept connection: ", err)
 				continue
 			}
 
 			c := newClient(conn, s.auth, s.backend, s.AllowInsecureAuth)
+			c.ErrorLog = s.ErrorLog
+			c.DebugLog = s.DebugLog
 			go c.handle()
 		}
 	}()
