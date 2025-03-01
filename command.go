@@ -132,6 +132,9 @@ func (cmd UserCommand) Run(c *Client, args []string) (int, error) {
 	if c.currentState != STATE_AUTHORIZATION {
 		return 0, ErrInvalidState
 	}
+	if !c.AllowAuth() {
+		return 0, fmt.Errorf("Authentication disabled")
+	}
 	if len(args) != 1 {
 		return 0, fmt.Errorf("Invalid arguments count: %d", len(args))
 	}
@@ -183,6 +186,9 @@ func (cmd PassCommand) Run(c *Client, args []string) (int, error) {
 	if c.currentState != STATE_AUTHORIZATION {
 		return 0, ErrInvalidState
 	}
+	if !c.AllowAuth() {
+		return 0, fmt.Errorf("Authentication disabled")
+	}
 	if c.lastCommand != "USER" {
 		c.printer.Err("PASS can be executed only directly after USER command")
 		return STATE_AUTHORIZATION, nil
@@ -191,7 +197,7 @@ func (cmd PassCommand) Run(c *Client, args []string) (int, error) {
 		return 0, fmt.Errorf("Invalid arguments count: %d", len(args))
 	}
 	c.pass = args[0]
-	err := c.authorizator.Authorize(c.user, c.pass)
+	err := c.authorizator.Authorize(c.conn, c.user, c.pass)
 	if err != nil {
 		c.printer.Err("Invalid username or password: %v", err)
 		return STATE_AUTHORIZATION, nil

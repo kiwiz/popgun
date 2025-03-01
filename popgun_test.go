@@ -19,10 +19,11 @@ func TestClient_handle(t *testing.T) {
 
 	backend := backends.DummyBackend{}
 	authorizator := backends.DummyAuthorizator{}
-	client := newClient(authorizator, backend)
+	insecure := true
+	client := newClient(s, authorizator, backend, insecure)
 
 	go func() {
-		client.handle(s)
+		client.handle()
 	}()
 
 	reader := bufio.NewReader(c)
@@ -59,9 +60,11 @@ func TestClient_handle(t *testing.T) {
 }
 
 func TestClient_parseInput(t *testing.T) {
+	conn := &net.IPConn{}
 	backend := backends.DummyBackend{}
 	authorizator := backends.DummyAuthorizator{}
-	client := newClient(authorizator, backend)
+	insecure := true
+	client := newClient(conn, authorizator, backend, insecure)
 
 	tables := [][][]string{
 		{{"COMMAND1"}, {"COMMAND1"}},
@@ -86,17 +89,20 @@ func TestClient_parseInput(t *testing.T) {
 }
 
 func TestServer_Start(t *testing.T) {
-	cfg := Config{
-		ListenInterface: "localhost:3001",
+	iface := "localhost:3001"
+	listener, err := net.Listen("tcp", iface)
+	if err != nil {
+		t.Fatal(err)
 	}
+
 	backend := backends.DummyBackend{}
 	authorizator := backends.DummyAuthorizator{}
-	server := NewServer(cfg, authorizator, backend)
-	server.Start()
+	server := NewServer(authorizator, backend)
+	server.Serve(listener)
 
-	conn, err := net.DialTimeout("tcp", cfg.ListenInterface, 3*time.Second)
+	conn, err := net.DialTimeout("tcp", iface, 3*time.Second)
 	if err != nil {
-		t.Errorf("Expected listening on '%s', but could not connect", cfg.ListenInterface)
+		t.Errorf("Expected listening on '%s', but could not connect", iface)
 		return
 	}
 	defer conn.Close()

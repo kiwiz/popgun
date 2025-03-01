@@ -1,13 +1,16 @@
 package backends
 
-import "fmt"
+import (
+	"fmt"
+	"net"
+)
 
 // DummyAuthorizator is a fake authorizator interface implementation used for test
 type DummyAuthorizator struct {
 }
 
 // Authorize user for given username and password.
-func (a DummyAuthorizator) Authorize(user, pass string) error {
+func (a DummyAuthorizator) Authorize(conn net.Conn, user, pass string) error {
 	return nil
 }
 

@@ -23,9 +23,11 @@ func commandTest(t *testing.T, tc cmdTestCase) {
 	defer c.Close()
 
 	go func(t *testing.T) {
+		conn := &net.IPConn{}
 		backend := backends.DummyBackend{}
 		authorizator := backends.DummyAuthorizator{}
-		client := newClient(authorizator, backend)
+		insecure := true
+		client := newClient(conn, authorizator, backend, insecure)
 		client.currentState = tc.initialState
 
 		client.printer = NewPrinter(s)

@@ -21,12 +21,8 @@ const (
 	STATE_UPDATE
 )
 
-type Config struct {
-	ListenInterface string `json:"listen_interface"`
-}
-
 type Authorizator interface {
-	Authorize(user, pass string) error
+	Authorize(conn net.Conn, user, pass string) error
 }
 
 type Backend interface {
@@ -51,18 +47,20 @@ var (
 //---------------CLIENT
 
 type Client struct {
-	commands     map[string]Executable
-	printer      *Printer
-	isAlive      bool
-	currentState int
-	authorizator Authorizator
-	backend      Backend
-	user         string
-	pass         string
-	lastCommand  string
+	conn              net.Conn
+	commands          map[string]Executable
+	printer           *Printer
+	isAlive           bool
+	currentState      int
+	authorizator      Authorizator
+	backend           Backend
+	user              string
+	pass              string
+	lastCommand       string
+	allowInsecureAuth bool
 }
 
-func newClient(authorizator Authorizator, backend Backend) *Client {
+func newClient(conn net.Conn, authorizator Authorizator, backend Backend, allowInsecureAuth bool) *Client {
 	commands := make(map[string]Executable)
 
 	commands["QUIT"] = QuitCommand{}
@@ -79,20 +77,27 @@ func newClient(authorizator Authorizator, backend Backend) *Client {
 	commands["TOP"] = TopCommand{}
 
 	return &Client{
-		commands:     commands,
-		currentState: STATE_AUTHORIZATION,
-		authorizator: authorizator,
-		backend:      backend,
+		conn:              conn,
+		commands:          commands,
+		currentState:      STATE_AUTHORIZATION,
+		authorizator:      authorizator,
+		backend:           backend,
+		allowInsecureAuth: allowInsecureAuth,
 	}
 }
 
-func (c Client) handle(conn net.Conn) {
-	defer conn.Close()
-	conn.SetReadDeadline(time.Now().Add(1 * time.Minute))
-	c.printer = NewPrinter(conn)
+func (c Client) AllowAuth() bool {
+	tlsConn, _ := c.conn.(*tls.Conn)
+	return c.allowInsecureAuth || tlsConn != nil
+}
+
+func (c Client) handle() {
+	defer c.conn.Close()
+	c.conn.SetReadDeadline(time.Now().Add(1 * time.Minute))
+	c.printer = NewPrinter(c.conn)
 
 	c.isAlive = true
-	reader := bufio.NewReader(conn)
+	reader := bufio.NewReader(c.conn)
 
 	c.printer.Welcome()
 
@@ -139,68 +144,32 @@ func (c Client) parseInput(input string) (string, []string) {
 //---------------SERVER
 
 type Server struct {
-	listener net.Listener
-	config   Config
-	auth     Authorizator
-	backend  Backend
+	auth    Authorizator
+	backend Backend
+
+	AllowInsecureAuth bool
 }
 
-func NewServer(cfg Config, auth Authorizator, backend Backend) *Server {
+func NewServer(auth Authorizator, backend Backend) *Server {
 	return &Server{
-		config:  cfg,
 		auth:    auth,
 		backend: backend,
+
+		AllowInsecureAuth: false,
 	}
 }
 
-func (s Server) StartTLS(certFile, keyFile string) error {
-	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
-	if err != nil {
-		log.Printf("Error: could not load certificate/key: %s", err)
-		return err
-	}
-	config := &tls.Config{Certificates: []tls.Certificate{cert}}
-	ln, err := tls.Listen("tcp", s.config.ListenInterface, config)
-	if err != nil {
-		log.Printf("Error: could not listen on %s: %s", s.config.ListenInterface, err)
-		return err
-	}
-
+func (s Server) Serve(l net.Listener) error {
 	go func() {
-		log.Printf("Server listening on: %s\n", s.config.ListenInterface)
 		for {
-			conn, err := ln.Accept()
-			if err != nil {
-				log.Println(err)
-				continue
-			}
-			c := newClient(s.auth, s.backend)
-			go c.handle(conn)
-		}
-	}()
-
-	return nil
-}
-
-func (s Server) Start() error {
-	var err error
-	s.listener, err = net.Listen("tcp", s.config.ListenInterface)
-	if err != nil {
-		log.Printf("Error: could not listen on %s", s.config.ListenInterface)
-		return err
-	}
-
-	go func() {
-		log.Printf("Server listening on: %s\n", s.config.ListenInterface)
-		for {
-			conn, err := s.listener.Accept()
+			conn, err := l.Accept()
 			if err != nil {
 				log.Println("Error: could not accept connection: ", err)
 				continue
 			}
 
-			c := newClient(s.auth, s.backend)
-			go c.handle(conn)
+			c := newClient(conn, s.auth, s.backend, s.AllowInsecureAuth)
+			go c.handle()
 		}
 	}()
 
