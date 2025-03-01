@@ -203,7 +203,7 @@ func TestListCommand_Run(t *testing.T) {
 			args:           []string{},
 			expectedState:  STATE_TRANSACTION,
 			expectedErr:    false,
-			expectedOutput: "^\\+OK 5 messages\r\n0 10\r\n1 10\r\n2 10\r\n3 10\r\n4 10\r\n\\.",
+			expectedOutput: "^\\+OK 5 messages\r\n1 10\r\n2 10\r\n3 10\r\n4 10\r\n5 10\r\n\\.",
 		},
 	}
 
@@ -384,7 +384,7 @@ func TestUidlCommand_Run(t *testing.T) {
 			args:           []string{},
 			expectedState:  STATE_TRANSACTION,
 			expectedErr:    false,
-			expectedOutput: "^\\+OK 5 messages\r\n0 1\r\n1 2\r\n2 3\r\n3 4\r\n4 5\r\n\\.",
+			expectedOutput: "^\\+OK 5 messages\r\n1 1\r\n2 2\r\n3 3\r\n4 4\r\n5 5\r\n\\.",
 		},
 	}
 
@@ -401,7 +401,7 @@ func TestCapaCommand_Run(t *testing.T) {
 			args:           []string{},
 			expectedState:  STATE_TRANSACTION,
 			expectedErr:    false,
-			expectedOutput: "^\\+OK \r\nUSER\r\nUIDL\r\n\\.",
+			expectedOutput: "^\\+OK \r\nUSER\r\nUIDL\r\nTOP\r\n\\.",
 		},
 		{
 			cmd:            CapaCommand{},
@@ -409,7 +409,7 @@ func TestCapaCommand_Run(t *testing.T) {
 			args:           []string{},
 			expectedState:  STATE_AUTHORIZATION,
 			expectedErr:    false,
-			expectedOutput: "^\\+OK \r\nUSER\r\nUIDL\r\n\\.",
+			expectedOutput: "^\\+OK \r\nUSER\r\nUIDL\r\nTOP\r\n\\.",
 		},
 	}
 
