@@ -72,12 +72,13 @@ func (cmd QuitCommand) Run(c *Client, args []string) (int, error) {
 		newState = STATE_UPDATE
 		err := c.backend.Update(c.user)
 		if err != nil {
-			return 0, fmt.Errorf("Error updating maildrop for user %s: %v", c.user, err)
+			return 0, fmt.Errorf("Error updating maildrop for user %s: %v", c.user.Username(), err)
 		}
 		err = c.backend.Unlock(c.user)
+		c.user = nil
 		if err != nil {
 			c.printer.Err("Server was unable to unlock maildrop")
-			return 0, fmt.Errorf("Error unlocking maildrop for user %s: %v", c.user, err)
+			return 0, fmt.Errorf("Error unlocking maildrop for user %s: %v", c.user.Username(), err)
 		}
 	}
 
@@ -138,7 +139,7 @@ func (cmd UserCommand) Run(c *Client, args []string) (int, error) {
 	if len(args) != 1 {
 		return 0, fmt.Errorf("Invalid arguments count: %d", len(args))
 	}
-	c.user = args[0]
+	c.username = args[0]
 	c.printer.Ok("")
 	return STATE_AUTHORIZATION, nil
 }
@@ -196,17 +197,19 @@ func (cmd PassCommand) Run(c *Client, args []string) (int, error) {
 	if len(args) != 1 {
 		return 0, fmt.Errorf("Invalid arguments count: %d", len(args))
 	}
-	c.pass = args[0]
-	err := c.authorizator.Authorize(c.conn, c.user, c.pass)
+	password := args[0]
+	user, err := c.authorizator.Authorize(c.conn, c.username, password)
+	c.user = user
+	c.username = ""
 	if err != nil {
 		c.printer.Err("Invalid username or password: %v", err)
 		return STATE_AUTHORIZATION, nil
 	}
 
-	err = c.backend.Lock(c.user)
+	err = c.backend.Lock(user)
 	if err != nil {
 		c.printer.Err("Server was unable to lock maildrop")
-		return 0, fmt.Errorf("Error locking maildrop for user %s: %v", c.user, err)
+		return 0, fmt.Errorf("Error locking maildrop for user %s: %v", c.user.Username(), err)
 	}
 
 	c.printer.Ok("User Successfully Logged on")
@@ -263,7 +266,7 @@ func (cmd StatCommand) Run(c *Client, args []string) (int, error) {
 
 	messages, octets, err := c.backend.Stat(c.user)
 	if err != nil {
-		return 0, fmt.Errorf("Error calling Stat for user %s: %v", c.user, err)
+		return 0, fmt.Errorf("Error calling Stat for user %s: %v", c.user.Username(), err)
 	}
 	c.printer.Ok("%d %d", messages, octets)
 	return STATE_TRANSACTION, nil
@@ -346,11 +349,11 @@ func (cmd ListCommand) Run(c *Client, args []string) (int, error) {
 		msgId, err := strconv.Atoi(args[0])
 		if err != nil {
 			c.printer.Err("Invalid argument: %s", args[0])
-			return 0, fmt.Errorf("Invalid argument for LIST given by user %s: %v", c.user, err)
+			return 0, fmt.Errorf("Invalid argument for LIST given by user %s: %v", c.user.Username(), err)
 		}
 		exists, octets, err := c.backend.ListMessage(c.user, msgId)
 		if err != nil {
-			return 0, fmt.Errorf("Error calling 'LIST %d' for user %s: %v", msgId, c.user, err)
+			return 0, fmt.Errorf("Error calling 'LIST %d' for user %s: %v", msgId, c.user.Username(), err)
 		}
 		if !exists {
 			c.printer.Err("no such message")
@@ -360,7 +363,7 @@ func (cmd ListCommand) Run(c *Client, args []string) (int, error) {
 	} else {
 		octets, err := c.backend.List(c.user)
 		if err != nil {
-			return 0, fmt.Errorf("Error calling LIST for user %s: %v", c.user, err)
+			return 0, fmt.Errorf("Error calling LIST for user %s: %v", c.user.Username(), err)
 		}
 		c.printer.Ok("%d messages", len(octets))
 		messagesList := make([]string, len(octets))
@@ -411,18 +414,18 @@ func (cmd RetrCommand) Run(c *Client, args []string) (int, error) {
 	}
 	if len(args) == 0 {
 		c.printer.Err("Missing argument for RETR command")
-		return 0, fmt.Errorf("Missing argument for RETR called by user %s", c.user)
+		return 0, fmt.Errorf("Missing argument for RETR called by user %s", c.user.Username())
 	}
 
 	msgId, err := strconv.Atoi(args[0])
 	if err != nil {
 		c.printer.Err("Invalid argument: %s", args[0])
-		return 0, fmt.Errorf("Invalid argument for RETR given by user %s: %v", c.user, err)
+		return 0, fmt.Errorf("Invalid argument for RETR given by user %s: %v", c.user.Username(), err)
 	}
 
 	message, err := c.backend.Retr(c.user, msgId)
 	if err != nil {
-		return 0, fmt.Errorf("Error calling 'RETR %d' for user %s: %v", msgId, c.user, err)
+		return 0, fmt.Errorf("Error calling 'RETR %d' for user %s: %v", msgId, c.user.Username(), err)
 	}
 	lines := strings.Split(message, "\n")
 	c.printer.Ok("")
@@ -468,17 +471,17 @@ func (cmd DeleCommand) Run(c *Client, args []string) (int, error) {
 	}
 	if len(args) == 0 {
 		c.printer.Err("Missing argument for DELE command")
-		return 0, fmt.Errorf("Missing argument for DELE called by user %s", c.user)
+		return 0, fmt.Errorf("Missing argument for DELE called by user %s", c.user.Username())
 	}
 
 	msgId, err := strconv.Atoi(args[0])
 	if err != nil {
 		c.printer.Err("Invalid argument: %s", args[0])
-		return 0, fmt.Errorf("Invalid argument for DELE given by user %s: %v", c.user, err)
+		return 0, fmt.Errorf("Invalid argument for DELE given by user %s: %v", c.user.Username(), err)
 	}
 	err = c.backend.Dele(c.user, msgId)
 	if err != nil {
-		return 0, fmt.Errorf("Error calling 'DELE %d' for user %s: %v", msgId, c.user, err)
+		return 0, fmt.Errorf("Error calling 'DELE %d' for user %s: %v", msgId, c.user.Username(), err)
 	}
 
 	c.printer.Ok("Message %d deleted", msgId)
@@ -565,7 +568,7 @@ func (cmd RsetCommand) Run(c *Client, args []string) (int, error) {
 	}
 	err := c.backend.Rset(c.user)
 	if err != nil {
-		return 0, fmt.Errorf("Error calling 'RSET' for user %s: %v", c.user, err)
+		return 0, fmt.Errorf("Error calling 'RSET' for user %s: %v", c.user.Username(), err)
 	}
 
 	c.printer.Ok("")
@@ -647,11 +650,11 @@ func (cmd UidlCommand) Run(c *Client, args []string) (int, error) {
 		msgId, err := strconv.Atoi(args[0])
 		if err != nil {
 			c.printer.Err("Invalid argument: %s", args[0])
-			return 0, fmt.Errorf("Invalid argument for UIDL given by user %s: %v", c.user, err)
+			return 0, fmt.Errorf("Invalid argument for UIDL given by user %s: %v", c.user.Username(), err)
 		}
 		exists, uid, err := c.backend.UidlMessage(c.user, msgId)
 		if err != nil {
-			return 0, fmt.Errorf("Error calling 'UIDL %d' for user %s: %v", msgId, c.user, err)
+			return 0, fmt.Errorf("Error calling 'UIDL %d' for user %s: %v", msgId, c.user.Username(), err)
 		}
 		if !exists {
 			c.printer.Err("no such message")
@@ -661,7 +664,7 @@ func (cmd UidlCommand) Run(c *Client, args []string) (int, error) {
 	} else {
 		uids, err := c.backend.Uidl(c.user)
 		if err != nil {
-			return 0, fmt.Errorf("Error calling UIDL for user %s: %v", c.user, err)
+			return 0, fmt.Errorf("Error calling UIDL for user %s: %v", c.user.Username(), err)
 		}
 		c.printer.Ok("%d messages", len(uids))
 		uidsList := make([]string, len(uids))
@@ -775,24 +778,24 @@ func (cmd TopCommand) Run(c *Client, args []string) (int, error) {
 	}
 
 	if len(args) != 2 {
-		return 0, fmt.Errorf("Invalid number of arguments for TOP for user %s", c.user)
+		return 0, fmt.Errorf("Invalid number of arguments for TOP for user %s", c.user.Username())
 	}
 
 	msgId, err := strconv.Atoi(args[0])
 	if err != nil {
 		c.printer.Err("Invalid argument: %s", args[0])
-		return 0, fmt.Errorf("Invalid argument for TOP given by user %s: %v", c.user, err)
+		return 0, fmt.Errorf("Invalid argument for TOP given by user %s: %v", c.user.Username(), err)
 	}
 
 	n, err := strconv.Atoi(args[1])
 	if err != nil {
 		c.printer.Err("Invalid argument: %s", args[1])
-		return 0, fmt.Errorf("Invalid argument for TOP given by user %s: %v", c.user, err)
+		return 0, fmt.Errorf("Invalid argument for TOP given by user %s: %v", c.user.Username(), err)
 	}
 
 	lines, err := c.backend.Top(c.user, msgId, n)
 	if err != nil {
-		return 0, fmt.Errorf("Error calling 'TOP %d %d' for user %s: %v", msgId, n, c.user, err)
+		return 0, fmt.Errorf("Error calling 'TOP %d %d' for user %s: %v", msgId, n, c.user.Username(), err)
 	}
 	c.printer.Ok("")
 	c.printer.MultiLine(lines)

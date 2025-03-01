@@ -8,6 +8,7 @@ import (
 	"bufio"
 	"crypto/tls"
 	"fmt"
+	"github.com/kiwiz/popgun/backends"
 	"io"
 	"log"
 	"net"
@@ -30,22 +31,22 @@ type Logger interface {
 }
 
 type Authorizator interface {
-	Authorize(conn net.Conn, user, pass string) error
+	Authorize(conn net.Conn, username, password string) (backends.User, error)
 }
 
 type Backend interface {
-	Stat(user string) (messages, octets int, err error)
-	List(user string) (octets []int, err error)
-	ListMessage(user string, msgId int) (exists bool, octets int, err error)
-	Retr(user string, msgId int) (message string, err error)
-	Dele(user string, msgId int) error
-	Rset(user string) error
-	Uidl(user string) (uids []string, err error)
-	UidlMessage(user string, msgId int) (exists bool, uid string, err error)
-	Top(user string, msgId int, n int) (lines []string, err error)
-	Update(user string) error
-	Lock(user string) error
-	Unlock(user string) error
+	Stat(user backends.User) (messages, octets int, err error)
+	List(user backends.User) (octets []int, err error)
+	ListMessage(user backends.User, msgId int) (exists bool, octets int, err error)
+	Retr(user backends.User, msgId int) (message string, err error)
+	Dele(user backends.User, msgId int) error
+	Rset(user backends.User) error
+	Uidl(user backends.User) (uids []string, err error)
+	UidlMessage(user backends.User, msgId int) (exists bool, uid string, err error)
+	Top(user backends.User, msgId int, n int) (lines []string, err error)
+	Update(user backends.User) error
+	Lock(user backends.User) error
+	Unlock(user backends.User) error
 }
 
 var (
@@ -62,8 +63,8 @@ type Client struct {
 	currentState      int
 	authorizator      Authorizator
 	backend           Backend
-	user              string
-	pass              string
+	user              backends.User
+	username          string
 	lastCommand       string
 	allowInsecureAuth bool
 
@@ -121,9 +122,10 @@ func (c Client) handle() {
 			} else {
 				c.DebugLog.Println("Error reading input: ", err)
 			}
-			if len(c.user) > 0 {
-				c.DebugLog.Println("Unlocking user %s due to connection error ", c.user)
+			if c.user != nil {
+				c.DebugLog.Println("Unlocking user %s due to connection error ", c.user.Username())
 				c.backend.Unlock(c.user)
+				c.user = nil
 			}
 			break
 		}
